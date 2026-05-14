@@ -1,5 +1,13 @@
 # Piano Sight Reading Trainer
 
+<p>
+  <img src="assets/home.png" width="200">
+  <img src="assets/treble.png" width="200">
+  <img src="assets/bass.png" width="200">
+  <img src="assets/symbols.png" width="200">
+</p>
+
+
 Flutter mobile app for acoustic piano sight-reading training using MVVM architecture with Stacked.
 
 ## Architecture
