@@ -5,10 +5,14 @@ class StaffPainter extends CustomPainter {
   final MusicalNote? note;
   final bool isBassClef;
   final Color noteColor;
+  final double? noteXOffset;
   final double staffLineSpacing = 20.0;
 
   StaffPainter(
-      {this.note, this.isBassClef = false, this.noteColor = Colors.black});
+      {this.note,
+      this.isBassClef = false,
+      this.noteColor = Colors.black,
+      this.noteXOffset});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -36,11 +40,10 @@ class StaffPainter extends CustomPainter {
 
     // Draw note if present
     if (note != null) {
-      // Shift linePosition by -2 to convert Treble positions (FACE) to Bass positions (ACEG)
-      // This ensures that an 'A' note appears in the bottom space of the Bass clef.
       final adjustedPosition =
           isBassClef ? note!.linePosition - 2 : note!.linePosition;
-      drawNote(canvas, size.width / 2, centerY, adjustedPosition, paint);
+      final noteX = noteXOffset ?? size.width / 2;
+      drawNote(canvas, noteX, centerY, adjustedPosition, paint);
     }
   }
 
@@ -131,7 +134,8 @@ class StaffPainter extends CustomPainter {
   bool shouldRepaint(StaffPainter oldDelegate) =>
       oldDelegate.note != note ||
       oldDelegate.isBassClef != isBassClef ||
-      oldDelegate.noteColor != noteColor;
+      oldDelegate.noteColor != noteColor ||
+      oldDelegate.noteXOffset != noteXOffset;
 
   void drawAccidental(Canvas canvas, double x, double y, String accidental) {
     final paint = Paint()

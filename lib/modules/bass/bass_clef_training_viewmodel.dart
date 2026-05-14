@@ -136,18 +136,27 @@ class BassClefTrainingViewmodel extends BaseViewModel {
   bool notesMatchByName(String pressed, String expected) {
     if (pressed == expected) return true;
     const noteToSemitone = {
-      'C': 0, 'B#': 0,
-      'C#': 1, 'Db': 1,
+      'C': 0,
+      'B#': 0,
+      'C#': 1,
+      'Db': 1,
       'D': 2,
-      'D#': 3, 'Eb': 3,
-      'E': 4, 'Fb': 4,
-      'F': 5, 'E#': 5,
-      'F#': 6, 'Gb': 6,
+      'D#': 3,
+      'Eb': 3,
+      'E': 4,
+      'Fb': 4,
+      'F': 5,
+      'E#': 5,
+      'F#': 6,
+      'Gb': 6,
       'G': 7,
-      'G#': 8, 'Ab': 8,
+      'G#': 8,
+      'Ab': 8,
       'A': 9,
-      'A#': 10, 'Bb': 10,
-      'B': 11, 'Cb': 11,
+      'A#': 10,
+      'Bb': 10,
+      'B': 11,
+      'Cb': 11,
     };
     return noteToSemitone[pressed] == noteToSemitone[expected];
   }
@@ -156,18 +165,33 @@ class BassClefTrainingViewmodel extends BaseViewModel {
     if (noteName == null) return '';
     final base = noteName.replaceAll(RegExp(r'[0-9]'), '');
     const enharmonics = {
-      'C#': 'C#/Db', 'Db': 'C#/Db',
-      'D#': 'D#/Eb', 'Eb': 'D#/Eb',
-      'F#': 'F#/Gb', 'Gb': 'F#/Gb',
-      'G#': 'G#/Ab', 'Ab': 'G#/Ab',
-      'A#': 'A#/Bb', 'Bb': 'A#/Bb',
+      'C#': 'C#/Db',
+      'Db': 'C#/Db',
+      'D#': 'D#/Eb',
+      'Eb': 'D#/Eb',
+      'F#': 'F#/Gb',
+      'Gb': 'F#/Gb',
+      'G#': 'G#/Ab',
+      'Ab': 'G#/Ab',
+      'A#': 'A#/Bb',
+      'Bb': 'A#/Bb',
     };
     return enharmonics[base] ?? base;
   }
 
   static const Map<String, int> _noteToMidiMap = {
-    'C': 48, 'C#': 49, 'D': 50, 'D#': 51, 'E': 52,
-    'F': 53, 'F#': 54, 'G': 55, 'G#': 56, 'A': 57, 'A#': 58, 'B': 59,
+    'C': 48,
+    'C#': 49,
+    'D': 50,
+    'D#': 51,
+    'E': 52,
+    'F': 53,
+    'F#': 54,
+    'G': 55,
+    'G#': 56,
+    'A': 57,
+    'A#': 58,
+    'B': 59,
   };
 
   void _playNoteSound(String noteLetter) {

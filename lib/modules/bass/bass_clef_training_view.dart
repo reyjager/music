@@ -1,14 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
 import 'bass_clef_training_viewmodel.dart';
+import '../../models/musical_note.dart';
 import '../widgets/staff_painter.dart';
 import '../widgets/piano_keyboard.dart';
 import '../widgets/stats_bar.dart';
 import '../../services/audio_service.dart';
 import '../../services/note_generator_service.dart';
 
-class BassClefTrainingView extends StatelessWidget {
+class BassClefTrainingView extends StatefulWidget {
   const BassClefTrainingView({Key? key}) : super(key: key);
+
+  @override
+  State<BassClefTrainingView> createState() => _BassClefTrainingViewState();
+}
+
+class _BassClefTrainingViewState extends State<BassClefTrainingView>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _noteAnimController;
+  late Animation<double> _noteAnimation;
+  MusicalNote? _lastNote;
+
+  @override
+  void initState() {
+    super.initState();
+    _noteAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    _noteAnimation = Tween<double>(begin: 1.0, end: 0.35).animate(
+      CurvedAnimation(parent: _noteAnimController, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _noteAnimController.dispose();
+    super.dispose();
+  }
+
+  void _checkNoteChanged(MusicalNote? currentNote) {
+    if (currentNote != _lastNote) {
+      _lastNote = currentNote;
+      _noteAnimController.forward(from: 0);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +54,9 @@ class BassClefTrainingView extends StatelessWidget {
         noteGenerator: NoteGeneratorService(),
       ),
       onViewModelReady: (model) => model.initialize(),
-      builder: (context, model, child) => Scaffold(
+      builder: (context, model, child) {
+        _checkNoteChanged(model.currentNote);
+        return Scaffold(
         appBar: AppBar(
           title: const Text('Bass Clef Training'),
           actions: [
@@ -74,13 +112,23 @@ class BassClefTrainingView extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 child: Stack(
                   children: [
-                    CustomPaint(
-                      painter: StaffPainter(
-                        note: model.currentNote,
-                        isBassClef: true,
-                        noteColor: model.noteColor,
+                    AnimatedBuilder(
+                      animation: _noteAnimation,
+                      builder: (context, _) => LayoutBuilder(
+                        builder: (context, constraints) {
+                          final noteX =
+                              constraints.maxWidth * _noteAnimation.value;
+                          return CustomPaint(
+                            painter: StaffPainter(
+                              note: model.currentNote,
+                              isBassClef: true,
+                              noteColor: model.noteColor,
+                              noteXOffset: noteX,
+                            ),
+                            size: Size.infinite,
+                          );
+                        },
                       ),
-                      size: Size.infinite,
                     ),
                     if (model.showFeedback && model.showFeedbackEnabled)
                       Center(
@@ -162,7 +210,8 @@ class BassClefTrainingView extends StatelessWidget {
             ],
           ),
         ),
-      ),
+      );
+        },
     );
   }
 
