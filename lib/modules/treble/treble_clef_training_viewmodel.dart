@@ -12,6 +12,17 @@ import '../../utils/pitch_converter.dart';
 
 enum InputMode { microphone, buttons }
 
+class ScrollingNote {
+  final MusicalNote note;
+  double xFraction; // 1.0 = right edge, 0.0 = left edge
+  bool answered;
+  bool? correct;
+
+  ScrollingNote({required this.note, this.xFraction = 1.0})
+      : answered = false,
+        correct = null;
+}
+
 class TrebleClefTrainingViewModel extends BaseViewModel {
   final AudioService audioService;
   final NoteGeneratorService noteGenerator;
@@ -35,7 +46,15 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
     notifyListeners();
   }
 
-  MusicalNote? currentNote;
+  List<ScrollingNote> scrollingNotes = [];
+  MusicalNote? get currentNote => _activeNote?.note;
+
+  ScrollingNote? get _activeNote {
+    for (final sn in scrollingNotes) {
+      if (!sn.answered) return sn;
+    }
+    return null;
+  }
 
   final SessionStats _stats = SessionStats();
   SessionStats get stats => _stats;
@@ -51,16 +70,16 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
     notifyListeners();
   }
 
-  /// Stores all attempts: {pressed, expected, correct}
   List<Map<String, dynamic>> attempts = [];
 
-  Color get noteColor {
-    if (!showFeedback) return Colors.black;
-    return isCorrect ? Colors.green : Colors.red;
+  Color noteColorFor(ScrollingNote sn) {
+    if (sn.correct == true) return Colors.green;
+    if (sn.correct == false) return Colors.red;
+    if (sn == _activeNote) return Colors.black;
+    return Colors.black54;
   }
 
   int? lastDetectedMidi;
-
   String? get lastDetectedNoteName => lastDetectedMidi != null
       ? PitchConverter.midiToNoteName(lastDetectedMidi!)
       : null;
@@ -71,18 +90,81 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
 
   bool get isListening => audioService.isListening;
 
+  static const double hitZone = 0.2;
+  static const double _missZone = 0.05;
+  static const double _noteSpacing = 0.25;
+
+  double _scrollSpeed = 0.003;
+  double get scrollSpeed => _scrollSpeed;
+  void setScrollSpeed(double value) {
+    _scrollSpeed = value;
+    notifyListeners();
+  }
+
+  bool _isRunning = false;
+  bool get isRunning => _isRunning;
+
+  void togglePause() {
+    _isRunning = !_isRunning;
+    notifyListeners();
+  }
+
   void initialize() {
-    generateNewNote();
+    SoundGenerator.init(44100);
+    SoundGenerator.setWaveType(waveTypes.SINUSOIDAL);
+    spawnInitialNotes();
+    _isRunning = true;
     if (_inputMode == InputMode.microphone) {
       startListening();
     }
-    SoundGenerator.init(44100);
-    SoundGenerator.setWaveType(waveTypes.SINUSOIDAL);
+    notifyListeners();
   }
 
-  void generateNewNote() {
-    currentNote = noteGenerator.generateRandomNote();
+  void spawnInitialNotes() {
+    scrollingNotes.clear();
+    for (int i = 0; i < 5; i++) {
+      scrollingNotes.add(ScrollingNote(
+        note: noteGenerator.generateRandomNote(),
+        xFraction: 0.8 + (i * _noteSpacing),
+      ));
+    }
     noteDisplayTime = DateTime.now();
+  }
+
+  /// Called every frame by the view's Ticker
+  void tick() {
+    if (!_isRunning) return;
+
+    for (final sn in scrollingNotes) {
+      sn.xFraction -= _scrollSpeed;
+    }
+
+    // Check for missed notes
+    for (final sn in scrollingNotes) {
+      if (!sn.answered && sn.xFraction < _missZone) {
+        sn.answered = true;
+        sn.correct = false;
+        _stats.recordIncorrect(sn.note.midiNumber, 0);
+        attempts.add({
+          'pressed': '—',
+          'expected': enharmonicLabel(sn.note.noteName),
+          'correct': false,
+        });
+      }
+    }
+
+    // Remove notes that scrolled off screen
+    scrollingNotes.removeWhere((sn) => sn.xFraction < -0.1);
+
+    // Spawn new notes on the right
+    if (scrollingNotes.isEmpty ||
+        scrollingNotes.last.xFraction < 1.0 - _noteSpacing) {
+      scrollingNotes.add(ScrollingNote(
+        note: noteGenerator.generateRandomNote(),
+        xFraction: 1.0,
+      ));
+    }
+
     notifyListeners();
   }
 
@@ -92,52 +174,77 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
     pitchSubscription = audioService.pitchStream.listen((detectedMidi) {
       lastDetectedMidi = detectedMidi;
       notifyListeners();
-      validateNote(detectedMidi);
+      validateMidi(detectedMidi);
     });
 
     notifyListeners();
   }
 
-  void validateNote(int detectedMidi) {
-    if (currentNote == null || showFeedback) return;
+  void validateMidi(int detectedMidi) {
+    final active = _activeNote;
+    if (active == null) return;
 
-    final expected = currentNote!.midiNumber;
+    final expected = active.note.midiNumber;
     final reactionTime =
         DateTime.now().difference(noteDisplayTime!).inMilliseconds;
 
     if (PitchConverter.notesMatch(detectedMidi, expected)) {
-      handleCorrect(reactionTime);
+      _markCorrect(active, reactionTime);
     } else {
-      handleIncorrect(expected, reactionTime);
+      markIncorrect(active, reactionTime);
     }
   }
 
   void manualNotePress(String noteLetter) {
     playNoteSound(noteLetter);
 
-    if (currentNote == null || showFeedback) return;
+    final active = _activeNote;
+    if (active == null) return;
 
     lastPressed = noteLetter;
-    final expectedName = currentNote!.noteName;
-    // Compare note letter (strip octave number), handle enharmonic equivalents
-    final pressedBase = noteLetter;
-    final expectedBase = expectedName.replaceAll(RegExp(r'[0-9]'), '');
-
-    print('Button pressed: $pressedBase | Expected: $expectedBase');
-
+    final expectedBase = active.note.noteName.replaceAll(RegExp(r'[0-9]'), '');
     final reactionTime =
         DateTime.now().difference(noteDisplayTime!).inMilliseconds;
 
-    if (notesMatchByName(pressedBase, expectedBase)) {
-      handleCorrect(reactionTime);
+    if (notesMatchByName(noteLetter, expectedBase)) {
+      _markCorrect(active, reactionTime);
     } else {
-      handleIncorrect(currentNote!.midiNumber, reactionTime);
+      markIncorrect(active, reactionTime);
     }
+  }
+
+  void _markCorrect(ScrollingNote sn, int reactionTime) {
+    sn.answered = true;
+    sn.correct = true;
+    _stats.recordCorrect(reactionTime);
+    isCorrect = true;
+    correctAnswer = enharmonicLabel(sn.note.noteName);
+    attempts.add({
+      'pressed': lastPressed,
+      'expected': enharmonicLabel(sn.note.noteName),
+      'correct': true,
+    });
+    noteDisplayTime = DateTime.now();
+    notifyListeners();
+  }
+
+  void markIncorrect(ScrollingNote sn, int reactionTime) {
+    sn.answered = true;
+    sn.correct = false;
+    _stats.recordIncorrect(sn.note.midiNumber, reactionTime);
+    isCorrect = false;
+    correctAnswer = enharmonicLabel(sn.note.noteName);
+    attempts.add({
+      'pressed': lastPressed,
+      'expected': enharmonicLabel(sn.note.noteName),
+      'correct': false,
+    });
+    noteDisplayTime = DateTime.now();
+    notifyListeners();
   }
 
   bool notesMatchByName(String pressed, String expected) {
     if (pressed == expected) return true;
-    // Map every spelling to a pitch class (0-11)
     const noteToSemitone = {
       'C': 0,
       'B#': 0,
@@ -164,50 +271,7 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
     return noteToSemitone[pressed] == noteToSemitone[expected];
   }
 
-  static const Map<String, int> _noteToMidiMap = {
-    'C': 60,
-    'C#': 61,
-    'D': 62,
-    'D#': 63,
-    'E': 64,
-    'F': 65,
-    'F#': 66,
-    'G': 67,
-    'G#': 68,
-    'A': 69,
-    'A#': 70,
-    'B': 71,
-  };
-
-  void playNoteSound(String noteLetter) {
-    soundStopTimer?.cancel();
-    SoundGenerator.stop(); // Stop any currently playing sound
-
-    final midi = _noteToMidiMap[noteLetter];
-    if (midi == null) return;
-
-    final frequency = 440 * pow(2, (midi - 69) / 12).toDouble();
-    SoundGenerator.setFrequency(frequency);
-    SoundGenerator.play();
-
-    soundStopTimer = Timer(const Duration(milliseconds: 300), () {
-      SoundGenerator.stop();
-    });
-  }
-
-  void handleCorrect(int reactionTime) {
-    _stats.recordCorrect(reactionTime);
-    isCorrect = true;
-    correctAnswer = _enharmonicLabel(currentNote?.noteName);
-    attempts.add({
-      'pressed': lastPressed,
-      'expected': _enharmonicLabel(currentNote?.noteName),
-      'correct': true
-    });
-    showFeedbackAnimation();
-  }
-
-  String _enharmonicLabel(String? noteName) {
+  String enharmonicLabel(String? noteName) {
     if (noteName == null) return '';
     final base = noteName.replaceAll(RegExp(r'[0-9]'), '');
     const enharmonics = {
@@ -225,35 +289,48 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
     return enharmonics[base] ?? base;
   }
 
-  void handleIncorrect(int expectedMidi, int reactionTime) {
-    _stats.recordIncorrect(expectedMidi, reactionTime);
-    isCorrect = false;
-    correctAnswer = _enharmonicLabel(currentNote?.noteName);
-    attempts.add(
-        {'pressed': lastPressed, 'expected': correctAnswer, 'correct': false});
-    notifyListeners();
-    showFeedbackAnimation();
-  }
+  static const Map<String, int> _noteToMidiMap = {
+    'C': 60,
+    'C#': 61,
+    'D': 62,
+    'D#': 63,
+    'E': 64,
+    'F': 65,
+    'F#': 66,
+    'G': 67,
+    'G#': 68,
+    'A': 69,
+    'A#': 70,
+    'B': 71,
+  };
 
-  void showFeedbackAnimation() {
-    showFeedback = true;
-    notifyListeners();
+  void playNoteSound(String noteLetter) {
+    soundStopTimer?.cancel();
+    SoundGenerator.stop();
 
-    Future.delayed(const Duration(milliseconds: 500), () {
-      showFeedback = false;
-      generateNewNote();
+    final midi = _noteToMidiMap[noteLetter];
+    if (midi == null) return;
+
+    final frequency = 440 * pow(2, (midi - 69) / 12).toDouble();
+    SoundGenerator.setFrequency(frequency);
+    SoundGenerator.play();
+
+    soundStopTimer = Timer(const Duration(milliseconds: 300), () {
+      SoundGenerator.stop();
     });
   }
 
   void resetSession() {
     _stats.reset();
     attempts.clear();
-    generateNewNote();
+    spawnInitialNotes();
+    _isRunning = true;
     notifyListeners();
   }
 
   @override
   void dispose() {
+    _isRunning = false;
     pitchSubscription?.cancel();
     audioService.stopListening();
     soundStopTimer?.cancel();

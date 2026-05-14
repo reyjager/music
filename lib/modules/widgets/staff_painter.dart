@@ -1,18 +1,29 @@
 import 'package:flutter/material.dart';
 import '../../models/musical_note.dart';
 
+class NotePosition {
+  final MusicalNote note;
+  final double xFraction; // 0.0 = left edge, 1.0 = right edge
+  final Color color;
+
+  NotePosition({required this.note, required this.xFraction, this.color = Colors.black});
+}
+
 class StaffPainter extends CustomPainter {
   final MusicalNote? note;
   final bool isBassClef;
   final Color noteColor;
   final double? noteXOffset;
+  final List<NotePosition>? noteQueue;
   final double staffLineSpacing = 20.0;
 
-  StaffPainter(
-      {this.note,
-      this.isBassClef = false,
-      this.noteColor = Colors.black,
-      this.noteXOffset});
+  StaffPainter({
+    this.note,
+    this.isBassClef = false,
+    this.noteColor = Colors.black,
+    this.noteXOffset,
+    this.noteQueue,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -38,13 +49,48 @@ class StaffPainter extends CustomPainter {
       drawTrebleClef(canvas, startX + 10, centerY, paint);
     }
 
-    // Draw note if present
-    if (note != null) {
+    // Draw note queue if provided
+    if (noteQueue != null) {
+      for (final np in noteQueue!) {
+        final adjustedPosition =
+            isBassClef ? np.note.linePosition - 2 : np.note.linePosition;
+        final x = startX + (endX - startX) * np.xFraction;
+        _drawNoteAt(canvas, x, centerY, adjustedPosition, np.note, np.color, paint);
+      }
+    } else if (note != null) {
       final adjustedPosition =
           isBassClef ? note!.linePosition - 2 : note!.linePosition;
       final noteX = noteXOffset ?? size.width / 2;
-      drawNote(canvas, noteX, centerY, adjustedPosition, paint);
+      _drawNoteAt(canvas, noteX, centerY, adjustedPosition, note!, noteColor, paint);
     }
+  }
+
+  void _drawNoteAt(Canvas canvas, double x, double centerY, int linePosition,
+      MusicalNote noteData, Color color, Paint paint) {
+    final noteY = centerY - (linePosition * staffLineSpacing / 2);
+
+    // Draw accidental
+    if (noteData.accidental != null) {
+      _drawAccidentalAt(canvas, x - 18, noteY, noteData.accidental!, color);
+    }
+
+    // Note head
+    final notePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(x, noteY), width: 20, height: 15),
+      notePaint,
+    );
+
+    // Stem
+    final stemPaint = Paint()
+      ..color = color
+      ..strokeWidth = 2.0;
+    canvas.drawLine(Offset(x + 10, noteY), Offset(x + 10, noteY - 60), stemPaint);
+
+    // Ledger lines
+    drawLedgerLines(canvas, x, centerY, linePosition, paint);
   }
 
   void drawTrebleClef(Canvas canvas, double x, double centerY, Paint paint) {
@@ -68,42 +114,7 @@ class StaffPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     );
     textPainter.layout();
-    // Center the bass clef vertically on the staff
     textPainter.paint(canvas, Offset(x, centerY - textPainter.height / 2));
-  }
-
-  void drawNote(
-      Canvas canvas, double x, double centerY, int linePosition, Paint paint) {
-    final noteY = centerY - (linePosition * staffLineSpacing / 2);
-
-    // Draw accidental if sharp/flat
-    if (note?.accidental != null) {
-      drawAccidental(canvas, x - 18, noteY, note!.accidental!);
-    }
-
-    // Draw note head (filled oval)
-    final notePaint = Paint()
-      ..color = noteColor
-      ..style = PaintingStyle.fill;
-
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset(x, noteY), width: 20, height: 15),
-      notePaint,
-    );
-
-    // Draw stem
-    final stemPaint = Paint()
-      ..color = noteColor
-      ..strokeWidth = 2.0;
-
-    canvas.drawLine(
-      Offset(x + 10, noteY),
-      Offset(x + 10, noteY - 60),
-      stemPaint,
-    );
-
-    // Draw ledger lines if needed
-    drawLedgerLines(canvas, x, centerY, linePosition, paint);
   }
 
   void drawLedgerLines(
@@ -112,8 +123,6 @@ class StaffPainter extends CustomPainter {
       ..color = Colors.black
       ..strokeWidth = 2.0;
 
-    // Above staff (linePosition > 4)
-    // Staff lines are at even positions, so ledger lines at even positions too
     if (linePosition > 4) {
       for (int i = 6; i <= linePosition; i += 2) {
         final y = centerY - (i * staffLineSpacing / 2);
@@ -121,7 +130,6 @@ class StaffPainter extends CustomPainter {
       }
     }
 
-    // Below staff (linePosition < -4)
     if (linePosition < -4) {
       for (int i = -6; i >= linePosition; i -= 2) {
         final y = centerY - (i * staffLineSpacing / 2);
@@ -131,27 +139,21 @@ class StaffPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(StaffPainter oldDelegate) =>
-      oldDelegate.note != note ||
-      oldDelegate.isBassClef != isBassClef ||
-      oldDelegate.noteColor != noteColor ||
-      oldDelegate.noteXOffset != noteXOffset;
+  bool shouldRepaint(StaffPainter oldDelegate) => true;
 
-  void drawAccidental(Canvas canvas, double x, double y, String accidental) {
+  void _drawAccidentalAt(Canvas canvas, double x, double y, String accidental, Color color) {
     final paint = Paint()
-      ..color = noteColor
+      ..color = color
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
 
     if (accidental == '#') {
       paint.style = PaintingStyle.stroke;
       final s = staffLineSpacing * 0.3;
-      // Vertical lines
       canvas.drawLine(Offset(x - s * 0.3, y - s * 1.2),
           Offset(x - s * 0.3, y + s * 1.2), paint);
       canvas.drawLine(Offset(x + s * 0.3, y - s * 1.2),
           Offset(x + s * 0.3, y + s * 1.2), paint);
-      // Horizontal lines
       paint.strokeWidth = 2.5;
       canvas.drawLine(
           Offset(x - s, y - s * 0.3), Offset(x + s, y - s * 0.4), paint);
@@ -161,10 +163,8 @@ class StaffPainter extends CustomPainter {
       paint.style = PaintingStyle.stroke;
       paint.strokeWidth = 1.8;
       final s = staffLineSpacing * 0.35;
-      // Vertical stem
       canvas.drawLine(Offset(x - s * 0.3, y - s * 1.8),
           Offset(x - s * 0.3, y + s * 0.5), paint);
-      // Curved belly
       final path = Path()
         ..moveTo(x - s * 0.3, y - s * 0.2)
         ..cubicTo(x + s * 0.7, y - s * 0.5, x + s * 0.7, y + s * 0.4,

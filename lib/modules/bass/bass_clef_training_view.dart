@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:stacked/stacked.dart';
 import 'bass_clef_training_viewmodel.dart';
-import '../../models/musical_note.dart';
 import '../widgets/staff_painter.dart';
 import '../widgets/piano_keyboard.dart';
 import '../widgets/stats_bar.dart';
@@ -17,33 +17,30 @@ class BassClefTrainingView extends StatefulWidget {
 
 class _BassClefTrainingViewState extends State<BassClefTrainingView>
     with SingleTickerProviderStateMixin {
-  late AnimationController _noteAnimController;
-  late Animation<double> _noteAnimation;
-  MusicalNote? _lastNote;
+  late Ticker _ticker;
+  BassClefTrainingViewmodel? _model;
 
   @override
   void initState() {
     super.initState();
-    _noteAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    );
-    _noteAnimation = Tween<double>(begin: 1.0, end: 0.35).animate(
-      CurvedAnimation(parent: _noteAnimController, curve: Curves.easeOut),
-    );
+    _ticker = createTicker((_) => _model?.tick());
+    _ticker.start();
   }
 
   @override
   void dispose() {
-    _noteAnimController.dispose();
+    _ticker.dispose();
     super.dispose();
   }
 
-  void _checkNoteChanged(MusicalNote? currentNote) {
-    if (currentNote != _lastNote) {
-      _lastNote = currentNote;
-      _noteAnimController.forward(from: 0);
-    }
+  List<NotePosition> _buildNotePositions(BassClefTrainingViewmodel model) {
+    return model.scrollingNotes.map((sn) {
+      return NotePosition(
+        note: sn.note,
+        xFraction: sn.xFraction,
+        color: model.noteColorFor(sn),
+      );
+    }).toList();
   }
 
   @override
@@ -53,165 +50,156 @@ class _BassClefTrainingViewState extends State<BassClefTrainingView>
         audioService: AudioService(),
         noteGenerator: NoteGeneratorService(),
       ),
-      onViewModelReady: (model) => model.initialize(),
+      onViewModelReady: (model) {
+        _model = model;
+        model.initialize();
+      },
       builder: (context, model, child) {
-        _checkNoteChanged(model.currentNote);
         return Scaffold(
-        appBar: AppBar(
-          title: const Text('Bass Clef Training'),
-          actions: [
-            IconButton(
-              icon: Icon(
-                model.showFeedbackEnabled
-                    ? Icons.visibility
-                    : Icons.visibility_off,
-              ),
-              tooltip: 'Toggle feedback',
-              onPressed: model.toggleShowFeedback,
-            ),
-            IconButton(
-              icon: const Icon(Icons.list_alt),
-              onPressed: () => _showReviewOverlay(context, model),
-            ),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: model.resetSession,
-            ),
-          ],
-        ),
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Stats bar
-              StatsBar(stats: model.statsBar),
-
-              // Input mode toggle
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: SegmentedButton<BassInputMode>(
-                  segments: const [
-                    ButtonSegment(
-                        value: BassInputMode.buttons,
-                        label: Text('Buttons'),
-                        icon: Icon(Icons.piano)),
-                    ButtonSegment(
-                        value: BassInputMode.microphone,
-                        label: Text('Mic'),
-                        icon: Icon(Icons.mic)),
-                  ],
-                  selected: {model.inputMode},
-                  onSelectionChanged: (s) => model.toggleInputMode(s.first),
+          appBar: AppBar(
+            title: const Text('Bass Clef Training'),
+            actions: [
+              IconButton(
+                icon: Icon(
+                  model.isRunning ? Icons.pause : Icons.play_arrow,
                 ),
+                tooltip: model.isRunning ? 'Pause' : 'Resume',
+                onPressed: model.togglePause,
               ),
-
-              // Staff display
-              Container(
-                height: 200,
-                margin:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                child: Stack(
-                  children: [
-                    AnimatedBuilder(
-                      animation: _noteAnimation,
-                      builder: (context, _) => LayoutBuilder(
-                        builder: (context, constraints) {
-                          final noteX =
-                              constraints.maxWidth * _noteAnimation.value;
-                          return CustomPaint(
-                            painter: StaffPainter(
-                              note: model.currentNote,
-                              isBassClef: true,
-                              noteColor: model.noteColor,
-                              noteXOffset: noteX,
-                            ),
-                            size: Size.infinite,
-                          );
-                        },
-                      ),
-                    ),
-                    if (model.showFeedback && model.showFeedbackEnabled)
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: (model.isCorrect ? Colors.green : Colors.red)
-                                .withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            model.isCorrect
-                                ? '✓ ${model.lastPressed}'
-                                : '✗ ${model.lastPressed} → ${model.correctAnswer}',
-                            style: const TextStyle(
-                                fontSize: 20,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                  ],
+              IconButton(
+                icon: Icon(
+                  model.showFeedbackEnabled
+                      ? Icons.visibility
+                      : Icons.visibility_off,
                 ),
+                tooltip: 'Toggle feedback',
+                onPressed: model.toggleShowFeedback,
               ),
+              IconButton(
+                icon: const Icon(Icons.list_alt),
+                onPressed: () => _showReviewOverlay(context, model),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: model.resetSession,
+              ),
+            ],
+          ),
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                StatsBar(stats: model.statsBar),
 
-              // Piano keyboard (only in button mode)
-              if (model.inputMode == BassInputMode.buttons)
-                PianoKeyboard(onNotePressed: model.manualNotePress),
-
-              // Current note name
-              if (model.currentNote != null)
+                // Speed slider
                 Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Play: ${model.currentNote!.noteName}',
-                    style: const TextStyle(
-                        fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                ),
-
-              // Listening indicator (only in mic mode)
-              if (model.inputMode == BassInputMode.microphone)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            model.isListening ? Icons.mic : Icons.mic_off,
-                            color:
-                                model.isListening ? Colors.green : Colors.grey,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            model.isListening
-                                ? 'Listening...'
-                                : 'Not listening',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ],
-                      ),
-                      if (model.lastDetectedMidi != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            'Heard: ${model.lastDetectedNoteName}',
-                            style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange),
-                          ),
+                      const Icon(Icons.speed, size: 20),
+                      Expanded(
+                        child: Slider(
+                          value: model.scrollSpeed,
+                          min: 0.001,
+                          max: 0.008,
+                          onChanged: model.setScrollSpeed,
                         ),
+                      ),
                     ],
                   ),
                 ),
-            ],
+
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: SegmentedButton<BassInputMode>(
+                    segments: const [
+                      ButtonSegment(
+                          value: BassInputMode.buttons,
+                          label: Text('Buttons'),
+                          icon: Icon(Icons.piano)),
+                      ButtonSegment(
+                          value: BassInputMode.microphone,
+                          label: Text('Mic'),
+                          icon: Icon(Icons.mic)),
+                    ],
+                    selected: {model.inputMode},
+                    onSelectionChanged: (s) => model.toggleInputMode(s.first),
+                  ),
+                ),
+
+                // Staff with scrolling notes
+                Container(
+                  height: 200,
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                  child: Stack(
+                    children: [
+                      CustomPaint(
+                        painter: StaffPainter(
+                          isBassClef: true,
+                          noteQueue: _buildNotePositions(model),
+                        ),
+                        size: Size.infinite,
+                      ),
+                      // Hit zone indicator
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 4,
+                          margin: const EdgeInsets.only(left: 60),
+                          color: Colors.blue.withValues(alpha: 0.4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                if (model.inputMode == BassInputMode.buttons)
+                  PianoKeyboard(onNotePressed: model.manualNotePress),
+
+                if (model.inputMode == BassInputMode.microphone)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              model.isListening ? Icons.mic : Icons.mic_off,
+                              color:
+                                  model.isListening ? Colors.green : Colors.grey,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              model.isListening
+                                  ? 'Listening...'
+                                  : 'Not listening',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ],
+                        ),
+                        if (model.lastDetectedMidi != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'Heard: ${model.lastDetectedNoteName}',
+                              style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-      );
-        },
+        );
+      },
     );
   }
 
