@@ -71,7 +71,7 @@ class BassClefTrainingViewmodel extends BaseViewModel {
   StreamSubscription? _pitchSubscription;
   Timer? _soundStopTimer;
 
-  bool get isListening => _audioService.isListening ?? false;
+  bool get isListening => _audioService.isListening;
 
   void initialize() {
     _generateNewNote();
