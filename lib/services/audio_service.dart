@@ -23,7 +23,7 @@ class AudioService {
     if (_isListening) return;
 
     print('AudioService: Starting to listen...');
-    
+
     final stream = await _recorder.startStream(const RecordConfig(
       encoder: AudioEncoder.pcm16bits,
       sampleRate: 44100,
@@ -33,14 +33,15 @@ class AudioService {
     print('AudioService: Stream started');
     _isListening = true;
     _pitchBuffer.clear();
-    _startValidationTimer();
+    startValidationTimer();
 
     stream.listen((data) async {
       print('AudioService: Received audio data, length: ${data.length}');
       final result = await _detector.getPitchFromIntBuffer(data);
-      print('AudioService: Pitch detection - pitched: ${result.pitched}, pitch: ${result.pitch}');
+      print(
+          'AudioService: Pitch detection - pitched: ${result.pitched}, pitch: ${result.pitch}');
       if (result.pitched) {
-        _processPitchSample(result.pitch);
+        processPitchSample(result.pitch);
       }
     });
   }
@@ -53,7 +54,7 @@ class AudioService {
     _pitchBuffer.clear();
   }
 
-  void _processPitchSample(double frequency) {
+  void processPitchSample(double frequency) {
     print('AudioService: Processing frequency: $frequency Hz');
     final midi = PitchConverter.frequencyToMidi(frequency);
     print('AudioService: Converted to MIDI: $midi');
@@ -66,7 +67,7 @@ class AudioService {
     _pitchBuffer.removeWhere((s) => s.timestamp.isBefore(cutoff));
   }
 
-  void _startValidationTimer() {
+  void startValidationTimer() {
     _validationTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
       final detectedNote = _getStableNote();
       if (detectedNote != null) {

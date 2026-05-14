@@ -12,12 +12,12 @@ class NoteGeneratorService {
 
   MusicalNote generateRandomNote() {
     final midi = chromaticNotes[_random.nextInt(chromaticNotes.length)];
-    return _createNote(midi);
+    return createNote(midi);
   }
 
-  MusicalNote _createNote(int midi) {
-    final noteName = _noteNameWithRandomSpelling(midi);
-    final linePosition = _calculateLinePosition(midi, noteName);
+  MusicalNote createNote(int midi) {
+    final noteName = noteNameWithRandomSpelling(midi);
+    final linePosition = calculateLinePosition(midi, noteName);
 
     return MusicalNote(
       midiNumber: midi,
@@ -27,7 +27,7 @@ class NoteGeneratorService {
   }
 
   /// Randomly spells sharps as flats (e.g. C# or Db)
-  String _noteNameWithRandomSpelling(int midi) {
+  String noteNameWithRandomSpelling(int midi) {
     const sharpNames = [
       'C',
       'C#',
@@ -67,7 +67,7 @@ class NoteGeneratorService {
     return '$name$octave';
   }
 
-  int _calculateLinePosition(int midi, String noteName) {
+  int calculateLinePosition(int midi, String noteName) {
     // Position is based on the letter name, not the MIDI number.
     // Treble clef: middle line (position 0) = B4
     // Each step up = +1 position

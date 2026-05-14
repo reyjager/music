@@ -20,24 +20,25 @@ class RestsPainter extends CustomPainter {
 
     switch (restType) {
       case 'whole':
-        _drawWholeRest(canvas, cx, cy, size, paint);
+        drawWholeRest(canvas, cx, cy, size, paint);
         break;
       case 'half':
-        _drawHalfRest(canvas, cx, cy, size, paint);
+        drawHalfRest(canvas, cx, cy, size, paint);
         break;
       case 'quarter':
-        _drawQuarterRest(canvas, cx, cy, size, paint);
+        drawQuarterRest(canvas, cx, cy, size, paint);
         break;
       case 'eighth':
-        _drawEighthRest(canvas, cx, cy, size, paint);
+        drawEighthRest(canvas, cx, cy, size, paint);
         break;
       case 'sixteenth':
-        _drawSixteenthRest(canvas, cx, cy, size, paint);
+        drawSixteenthRest(canvas, cx, cy, size, paint);
         break;
     }
   }
 
-  void _drawWholeRest(Canvas canvas, double cx, double cy, Size size, Paint paint) {
+  void drawWholeRest(
+      Canvas canvas, double cx, double cy, Size size, Paint paint) {
     // Whole rest: rectangle hanging below a line
     final lineY = cy - size.height * 0.1;
     final rectWidth = size.width * 0.3;
@@ -59,7 +60,8 @@ class RestsPainter extends CustomPainter {
     );
   }
 
-  void _drawHalfRest(Canvas canvas, double cx, double cy, Size size, Paint paint) {
+  void drawHalfRest(
+      Canvas canvas, double cx, double cy, Size size, Paint paint) {
     // Half rest: rectangle sitting on top of a line
     final lineY = cy + size.height * 0.05;
     final rectWidth = size.width * 0.3;
@@ -76,12 +78,14 @@ class RestsPainter extends CustomPainter {
     // Sitting rectangle
     paint.style = PaintingStyle.fill;
     canvas.drawRect(
-      Rect.fromLTWH(cx - rectWidth / 2, lineY - rectHeight, rectWidth, rectHeight),
+      Rect.fromLTWH(
+          cx - rectWidth / 2, lineY - rectHeight, rectWidth, rectHeight),
       paint,
     );
   }
 
-  void _drawQuarterRest(Canvas canvas, double cx, double cy, Size size, Paint paint) {
+  void drawQuarterRest(
+      Canvas canvas, double cx, double cy, Size size, Paint paint) {
     // Quarter rest: zigzag shape
     final h = size.height * 0.5;
     final top = cy - h / 2;
@@ -100,7 +104,8 @@ class RestsPainter extends CustomPainter {
     canvas.drawPath(path, paint);
   }
 
-  void _drawEighthRest(Canvas canvas, double cx, double cy, Size size, Paint paint) {
+  void drawEighthRest(
+      Canvas canvas, double cx, double cy, Size size, Paint paint) {
     // Eighth rest: dot with a curved line
     final h = size.height * 0.35;
     final top = cy - h / 2;
@@ -112,9 +117,12 @@ class RestsPainter extends CustomPainter {
     final path = Path()
       ..moveTo(cx + size.width * 0.05, top + 3)
       ..cubicTo(
-        cx - size.width * 0.1, top + h * 0.4,
-        cx + size.width * 0.05, top + h * 0.6,
-        cx - size.width * 0.05, top + h,
+        cx - size.width * 0.1,
+        top + h * 0.4,
+        cx + size.width * 0.05,
+        top + h * 0.6,
+        cx - size.width * 0.05,
+        top + h,
       );
 
     paint.style = PaintingStyle.stroke;
@@ -122,22 +130,27 @@ class RestsPainter extends CustomPainter {
     canvas.drawPath(path, paint);
   }
 
-  void _drawSixteenthRest(Canvas canvas, double cx, double cy, Size size, Paint paint) {
+  void drawSixteenthRest(
+      Canvas canvas, double cx, double cy, Size size, Paint paint) {
     // Sixteenth rest: two dots with curved line
     final h = size.height * 0.45;
     final top = cy - h / 2;
 
     // Two dots
     canvas.drawCircle(Offset(cx + size.width * 0.05, top), 3.5, paint);
-    canvas.drawCircle(Offset(cx + size.width * 0.08, top + h * 0.3), 3.5, paint);
+    canvas.drawCircle(
+        Offset(cx + size.width * 0.08, top + h * 0.3), 3.5, paint);
 
     // Curved stem
     final path = Path()
       ..moveTo(cx + size.width * 0.05, top + 3)
       ..cubicTo(
-        cx - size.width * 0.1, top + h * 0.4,
-        cx + size.width * 0.05, top + h * 0.6,
-        cx - size.width * 0.05, top + h,
+        cx - size.width * 0.1,
+        top + h * 0.4,
+        cx + size.width * 0.05,
+        top + h * 0.6,
+        cx - size.width * 0.05,
+        top + h,
       );
 
     paint.style = PaintingStyle.stroke;

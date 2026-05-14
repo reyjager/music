@@ -169,18 +169,18 @@ class MusicStaffPainter extends CustomPainter {
       for (var i = 0; i < sharps.clamp(0, 7); i++) {
         final x = symbol.x + i * spacing;
         final y = staffTop + _sharpPositions[i] * lineSpacing / 2;
-        _drawSharpSymbol(canvas, x, y, lineSpacing, paint);
+        drawSharpSymbol(canvas, x, y, lineSpacing, paint);
       }
     } else if (flats > 0) {
       for (var i = 0; i < flats.clamp(0, 7); i++) {
         final x = symbol.x + i * spacing;
         final y = staffTop + _flatPositions[i] * lineSpacing / 2;
-        _drawFlatSymbol(canvas, x, y, lineSpacing, paint);
+        drawFlatSymbol(canvas, x, y, lineSpacing, paint);
       }
     }
   }
 
-  void _drawSharpSymbol(
+  void drawSharpSymbol(
       Canvas canvas, double x, double y, double lineSpacing, Paint paint) {
     final s = lineSpacing * 0.35;
     paint.style = PaintingStyle.stroke;
@@ -196,7 +196,7 @@ class MusicStaffPainter extends CustomPainter {
         Offset(x - s, y + s * 0.5), Offset(x + s, y + s * 0.4), paint);
   }
 
-  void _drawFlatSymbol(
+  void drawFlatSymbol(
       Canvas canvas, double x, double y, double lineSpacing, Paint paint) {
     final s = lineSpacing * 0.4;
     paint.style = PaintingStyle.stroke;
@@ -221,30 +221,30 @@ class MusicStaffPainter extends CustomPainter {
     final stemH = lineSpacing * 2.5;
 
     // Ledger lines
-    _drawLedgerLines(
+    drawLedgerLines(
         canvas, x, staffTop, lineSpacing, symbol.staffPosition, noteW, paint);
 
     switch (noteType) {
       case 'whole':
-        _drawNoteHead(canvas, x, y, noteW, noteH, paint, filled: false);
+        drawNoteHead(canvas, x, y, noteW, noteH, paint, filled: false);
       case 'half':
-        _drawNoteHead(canvas, x, y, noteW, noteH, paint, filled: false);
-        _drawStem(canvas, x + noteW, y, stemH, paint);
+        drawNoteHead(canvas, x, y, noteW, noteH, paint, filled: false);
+        drawStem(canvas, x + noteW, y, stemH, paint);
       case 'quarter':
-        _drawNoteHead(canvas, x, y, noteW, noteH, paint, filled: true);
-        _drawStem(canvas, x + noteW, y, stemH, paint);
+        drawNoteHead(canvas, x, y, noteW, noteH, paint, filled: true);
+        drawStem(canvas, x + noteW, y, stemH, paint);
       case 'eighth':
-        _drawNoteHead(canvas, x, y, noteW, noteH, paint, filled: true);
-        _drawStem(canvas, x + noteW, y, stemH, paint);
-        _drawFlag(canvas, x + noteW, y - stemH, lineSpacing, paint, 1);
+        drawNoteHead(canvas, x, y, noteW, noteH, paint, filled: true);
+        drawStem(canvas, x + noteW, y, stemH, paint);
+        drawFlag(canvas, x + noteW, y - stemH, lineSpacing, paint, 1);
       case 'sixteenth':
-        _drawNoteHead(canvas, x, y, noteW, noteH, paint, filled: true);
-        _drawStem(canvas, x + noteW, y, stemH, paint);
-        _drawFlag(canvas, x + noteW, y - stemH, lineSpacing, paint, 2);
+        drawNoteHead(canvas, x, y, noteW, noteH, paint, filled: true);
+        drawStem(canvas, x + noteW, y, stemH, paint);
+        drawFlag(canvas, x + noteW, y - stemH, lineSpacing, paint, 2);
     }
   }
 
-  void _drawNoteHead(
+  void drawNoteHead(
       Canvas canvas, double cx, double cy, double w, double h, Paint paint,
       {required bool filled}) {
     canvas.save();
@@ -263,14 +263,13 @@ class MusicStaffPainter extends CustomPainter {
     canvas.restore();
   }
 
-  void _drawStem(
-      Canvas canvas, double x, double y, double height, Paint paint) {
+  void drawStem(Canvas canvas, double x, double y, double height, Paint paint) {
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 1.5;
     canvas.drawLine(Offset(x, y), Offset(x, y - height), paint);
   }
 
-  void _drawFlag(Canvas canvas, double x, double y, double lineSpacing,
+  void drawFlag(Canvas canvas, double x, double y, double lineSpacing,
       Paint paint, int count) {
     final flagLen = lineSpacing * 1.2;
     paint.style = PaintingStyle.stroke;
@@ -285,7 +284,7 @@ class MusicStaffPainter extends CustomPainter {
     }
   }
 
-  void _drawLedgerLines(Canvas canvas, double x, double staffTop,
+  void drawLedgerLines(Canvas canvas, double x, double staffTop,
       double lineSpacing, int staffPos, double noteW, Paint paint) {
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 1.0;
@@ -370,11 +369,11 @@ class MusicStaffPainter extends CustomPainter {
 
     switch (accType) {
       case 'sharp':
-        _drawSharpSymbol(canvas, x, y, lineSpacing, paint);
+        drawSharpSymbol(canvas, x, y, lineSpacing, paint);
       case 'flat':
-        _drawFlatSymbol(canvas, x, y, lineSpacing, paint);
+        drawFlatSymbol(canvas, x, y, lineSpacing, paint);
       case 'natural':
-        _drawNaturalSymbol(canvas, x, y, lineSpacing, paint);
+        drawNaturalSymbol(canvas, x, y, lineSpacing, paint);
       case 'doubleSharp':
         final s = lineSpacing * 0.25;
         paint.style = PaintingStyle.stroke;
@@ -382,12 +381,12 @@ class MusicStaffPainter extends CustomPainter {
         canvas.drawLine(Offset(x - s, y - s), Offset(x + s, y + s), paint);
         canvas.drawLine(Offset(x + s, y - s), Offset(x - s, y + s), paint);
       case 'doubleFlat':
-        _drawFlatSymbol(canvas, x - lineSpacing * 0.3, y, lineSpacing, paint);
-        _drawFlatSymbol(canvas, x + lineSpacing * 0.3, y, lineSpacing, paint);
+        drawFlatSymbol(canvas, x - lineSpacing * 0.3, y, lineSpacing, paint);
+        drawFlatSymbol(canvas, x + lineSpacing * 0.3, y, lineSpacing, paint);
     }
   }
 
-  void _drawNaturalSymbol(
+  void drawNaturalSymbol(
       Canvas canvas, double x, double y, double lineSpacing, Paint paint) {
     final s = lineSpacing * 0.3;
     paint.style = PaintingStyle.stroke;
@@ -560,6 +559,7 @@ class GrandStaffPainter extends CustomPainter {
   final Color staffColor;
   final bool drawBrace;
   final bool drawConnectingBarline;
+
   /// Left margin reserved for brace + barline
   final double leftMargin;
 
@@ -580,7 +580,6 @@ class GrandStaffPainter extends CustomPainter {
     final bassTop = trebleHeight + gap;
 
     final trebleStaffTop = trebleHeight * 0.2;
-    final trebleStaffH = trebleHeight * 0.6;
     final bassStaffTop = bassTop + trebleHeight * 0.2;
     final bassStaffH = trebleHeight * 0.6;
 
@@ -641,8 +640,10 @@ class GrandStaffPainter extends CustomPainter {
     // Brace as two mirrored cubic curves meeting at the middle
     final path = Path()
       ..moveTo(x, top)
-      ..cubicTo(x - 10, top + height * 0.25, x - 10, midY - height * 0.1, x - 3, midY)
-      ..cubicTo(x - 10, midY + height * 0.1, x - 10, bottom - height * 0.25, x, bottom);
+      ..cubicTo(
+          x - 10, top + height * 0.25, x - 10, midY - height * 0.1, x - 3, midY)
+      ..cubicTo(x - 10, midY + height * 0.1, x - 10, bottom - height * 0.25, x,
+          bottom);
 
     canvas.drawPath(path, paint);
   }

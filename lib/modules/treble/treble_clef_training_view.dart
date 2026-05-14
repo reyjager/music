@@ -25,14 +25,16 @@ class TrebleClefTrainingView extends StatelessWidget {
           actions: [
             IconButton(
               icon: Icon(
-                model.showFeedbackEnabled ? Icons.visibility : Icons.visibility_off,
+                model.showFeedbackEnabled
+                    ? Icons.visibility
+                    : Icons.visibility_off,
               ),
               tooltip: 'Toggle feedback',
               onPressed: model.toggleShowFeedback,
             ),
             IconButton(
               icon: const Icon(Icons.list_alt),
-              onPressed: () => _showReviewOverlay(context, model),
+              onPressed: () => showReviewOverlay(context, model),
             ),
             IconButton(
               icon: const Icon(Icons.refresh),
@@ -83,23 +85,27 @@ class TrebleClefTrainingView extends StatelessWidget {
                     if (model.showFeedback && model.showFeedbackEnabled)
                       Center(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            color: (model.isCorrect ? Colors.green : Colors.red).withValues(alpha: 0.9),
+                            color: (model.isCorrect ? Colors.green : Colors.red)
+                                .withValues(alpha: 0.9),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             model.isCorrect
                                 ? '✓ ${model.lastPressed}'
                                 : '✗ ${model.lastPressed} → ${model.correctAnswer}',
-                            style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                fontSize: 20,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
                   ],
                 ),
               ),
-
 
               // Piano keyboard (only in button mode)
               if (model.inputMode == InputMode.buttons)
@@ -160,9 +166,8 @@ class TrebleClefTrainingView extends StatelessWidget {
     );
   }
 
-
-
-  void _showReviewOverlay(BuildContext context, TrebleClefTrainingViewModel model) {
+  void showReviewOverlay(
+      BuildContext context, TrebleClefTrainingViewModel model) {
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -171,7 +176,8 @@ class TrebleClefTrainingView extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Review', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Text('Review',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               if (model.attempts.isEmpty)
                 const Text('No attempts yet.')
