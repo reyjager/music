@@ -36,7 +36,7 @@ class _TrainingViewState extends State<TrainingView>
     super.dispose();
   }
 
-  List<NotePosition> _buildNotePositions(TrainingViewModel model) {
+  List<NotePosition> buildNotePositions(TrainingViewModel model) {
     return model.scrollingNotes.map((sn) {
       return NotePosition(
         note: sn.note,
@@ -77,7 +77,7 @@ class _TrainingViewState extends State<TrainingView>
               ),
               IconButton(
                 icon: const Icon(Icons.list_alt),
-                onPressed: () => _showReviewOverlay(context, model),
+                onPressed: () => showReviewOverlay(context, model),
               ),
               IconButton(
                 icon: const Icon(Icons.refresh),
@@ -89,7 +89,6 @@ class _TrainingViewState extends State<TrainingView>
             child: Column(
               children: [
                 StatsBar(stats: model.stats),
-
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
@@ -106,7 +105,6 @@ class _TrainingViewState extends State<TrainingView>
                     ],
                   ),
                 ),
-
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -125,7 +123,6 @@ class _TrainingViewState extends State<TrainingView>
                     onSelectionChanged: (s) => model.toggleInputMode(s.first),
                   ),
                 ),
-
                 Container(
                   height: 200,
                   margin:
@@ -135,7 +132,7 @@ class _TrainingViewState extends State<TrainingView>
                       CustomPaint(
                         painter: StaffPainter(
                           isBassClef: widget.config.isBassClef,
-                          noteQueue: _buildNotePositions(model),
+                          noteQueue: buildNotePositions(model),
                         ),
                         size: Size.infinite,
                       ),
@@ -152,10 +149,8 @@ class _TrainingViewState extends State<TrainingView>
                     ],
                   ),
                 ),
-
                 if (model.inputMode == ClefInputMode.buttons)
                   PianoKeyboard(onNotePressed: model.manualNotePress),
-
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: model.lastAnswerFeedback != null
@@ -175,7 +170,6 @@ class _TrainingViewState extends State<TrainingView>
                             )
                           : const SizedBox.shrink(),
                 ),
-
                 if (model.inputMode == ClefInputMode.microphone)
                   Padding(
                     padding: const EdgeInsets.all(16),
@@ -186,8 +180,9 @@ class _TrainingViewState extends State<TrainingView>
                           children: [
                             Icon(
                               model.isListening ? Icons.mic : Icons.mic_off,
-                              color:
-                                  model.isListening ? Colors.green : Colors.grey,
+                              color: model.isListening
+                                  ? Colors.green
+                                  : Colors.grey,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -220,7 +215,7 @@ class _TrainingViewState extends State<TrainingView>
     );
   }
 
-  void _showReviewOverlay(BuildContext context, TrainingViewModel model) {
+  void showReviewOverlay(BuildContext context, TrainingViewModel model) {
     showDialog(
       context: context,
       builder: (context) => Dialog(
