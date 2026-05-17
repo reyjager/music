@@ -1,25 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:stacked/stacked.dart';
-import 'treble_clef_training_viewmodel.dart';
-export 'treble_clef_training_viewmodel.dart' show InputMode;
+import '../../models/clef_config.dart';
+import '../../services/audio_service.dart';
+import '../../services/note_generator_service.dart';
 import '../widgets/staff_painter.dart';
 import '../widgets/piano_keyboard.dart';
 import '../widgets/stats_bar.dart';
-import '../../services/audio_service.dart';
-import '../../services/note_generator_service.dart';
+import 'training_viewmodel.dart';
 
-class TrebleClefTrainingView extends StatefulWidget {
-  const TrebleClefTrainingView({Key? key}) : super(key: key);
+class TrainingView extends StatefulWidget {
+  final ClefConfig config;
+
+  const TrainingView({Key? key, required this.config}) : super(key: key);
 
   @override
-  State<TrebleClefTrainingView> createState() => _TrebleClefTrainingViewState();
+  State<TrainingView> createState() => _TrainingViewState();
 }
 
-class _TrebleClefTrainingViewState extends State<TrebleClefTrainingView>
+class _TrainingViewState extends State<TrainingView>
     with SingleTickerProviderStateMixin {
   late Ticker _ticker;
-  TrebleClefTrainingViewModel? _model;
+  TrainingViewModel? _model;
 
   @override
   void initState() {
@@ -34,7 +36,7 @@ class _TrebleClefTrainingViewState extends State<TrebleClefTrainingView>
     super.dispose();
   }
 
-  List<NotePosition> _buildNotePositions(TrebleClefTrainingViewModel model) {
+  List<NotePosition> _buildNotePositions(TrainingViewModel model) {
     return model.scrollingNotes.map((sn) {
       return NotePosition(
         note: sn.note,
@@ -46,8 +48,9 @@ class _TrebleClefTrainingViewState extends State<TrebleClefTrainingView>
 
   @override
   Widget build(BuildContext context) {
-    return ViewModelBuilder<TrebleClefTrainingViewModel>.reactive(
-      viewModelBuilder: () => TrebleClefTrainingViewModel(
+    return ViewModelBuilder<TrainingViewModel>.reactive(
+      viewModelBuilder: () => TrainingViewModel(
+        config: widget.config,
         audioService: AudioService(),
         noteGenerator: NoteGeneratorService(),
       ),
@@ -58,27 +61,23 @@ class _TrebleClefTrainingViewState extends State<TrebleClefTrainingView>
       builder: (context, model, child) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Piano Sight Reading'),
+            title: Text(widget.config.title),
             actions: [
               IconButton(
-                icon: Icon(
-                  model.isRunning ? Icons.pause : Icons.play_arrow,
-                ),
+                icon: Icon(model.isRunning ? Icons.pause : Icons.play_arrow),
                 tooltip: model.isRunning ? 'Pause' : 'Resume',
                 onPressed: model.togglePause,
               ),
               IconButton(
-                icon: Icon(
-                  model.showFeedbackEnabled
-                      ? Icons.visibility
-                      : Icons.visibility_off,
-                ),
+                icon: Icon(model.showFeedbackEnabled
+                    ? Icons.visibility
+                    : Icons.visibility_off),
                 tooltip: 'Toggle feedback',
                 onPressed: model.toggleShowFeedback,
               ),
               IconButton(
                 icon: const Icon(Icons.list_alt),
-                onPressed: () => showReviewOverlay(context, model),
+                onPressed: () => _showReviewOverlay(context, model),
               ),
               IconButton(
                 icon: const Icon(Icons.refresh),
@@ -91,7 +90,6 @@ class _TrebleClefTrainingViewState extends State<TrebleClefTrainingView>
               children: [
                 StatsBar(stats: model.stats),
 
-                // Speed slider
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
@@ -112,14 +110,14 @@ class _TrebleClefTrainingViewState extends State<TrebleClefTrainingView>
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: SegmentedButton<InputMode>(
+                  child: SegmentedButton<ClefInputMode>(
                     segments: const [
                       ButtonSegment(
-                          value: InputMode.buttons,
+                          value: ClefInputMode.buttons,
                           label: Text('Buttons'),
                           icon: Icon(Icons.piano)),
                       ButtonSegment(
-                          value: InputMode.microphone,
+                          value: ClefInputMode.microphone,
                           label: Text('Mic'),
                           icon: Icon(Icons.mic)),
                     ],
@@ -128,7 +126,6 @@ class _TrebleClefTrainingViewState extends State<TrebleClefTrainingView>
                   ),
                 ),
 
-                // Staff with scrolling notes
                 Container(
                   height: 200,
                   margin:
@@ -137,11 +134,11 @@ class _TrebleClefTrainingViewState extends State<TrebleClefTrainingView>
                     children: [
                       CustomPaint(
                         painter: StaffPainter(
+                          isBassClef: widget.config.isBassClef,
                           noteQueue: _buildNotePositions(model),
                         ),
                         size: Size.infinite,
                       ),
-                      // Hit zone indicator
                       Positioned(
                         left: 0,
                         top: 0,
@@ -156,10 +153,9 @@ class _TrebleClefTrainingViewState extends State<TrebleClefTrainingView>
                   ),
                 ),
 
-                if (model.inputMode == InputMode.buttons)
+                if (model.inputMode == ClefInputMode.buttons)
                   PianoKeyboard(onNotePressed: model.manualNotePress),
 
-                // Show current note to play with feedback
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: model.lastAnswerFeedback != null
@@ -180,7 +176,7 @@ class _TrebleClefTrainingViewState extends State<TrebleClefTrainingView>
                           : const SizedBox.shrink(),
                 ),
 
-                if (model.inputMode == InputMode.microphone)
+                if (model.inputMode == ClefInputMode.microphone)
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -190,9 +186,8 @@ class _TrebleClefTrainingViewState extends State<TrebleClefTrainingView>
                           children: [
                             Icon(
                               model.isListening ? Icons.mic : Icons.mic_off,
-                              color: model.isListening
-                                  ? Colors.green
-                                  : Colors.grey,
+                              color:
+                                  model.isListening ? Colors.green : Colors.grey,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -225,8 +220,7 @@ class _TrebleClefTrainingViewState extends State<TrebleClefTrainingView>
     );
   }
 
-  void showReviewOverlay(
-      BuildContext context, TrebleClefTrainingViewModel model) {
+  void _showReviewOverlay(BuildContext context, TrainingViewModel model) {
     showDialog(
       context: context,
       builder: (context) => Dialog(

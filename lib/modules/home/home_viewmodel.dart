@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:music_reading_trainir/modules/bass/bass_clef_training_view.dart';
 import 'package:music_reading_trainir/modules/symbols_reference/symbols_reference_view.dart';
-import 'package:music_reading_trainir/modules/treble/treble_clef_training_view.dart';
+import 'package:music_reading_trainir/modules/training/clef/bass_page.dart';
+import 'package:music_reading_trainir/modules/training/clef/treble_page.dart';
 import 'package:stacked/stacked.dart';
 
 class HomeMenuItem {
