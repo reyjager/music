@@ -159,6 +159,27 @@ class _TrebleClefTrainingViewState extends State<TrebleClefTrainingView>
                 if (model.inputMode == InputMode.buttons)
                   PianoKeyboard(onNotePressed: model.manualNotePress),
 
+                // Show current note to play with feedback
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: model.lastAnswerFeedback != null
+                      ? Text(
+                          model.lastAnswerFeedback!,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: model.isCorrect ? Colors.green : Colors.red,
+                          ),
+                        )
+                      : model.currentNote != null
+                          ? Text(
+                              'Play: ${model.currentNote!.noteName}',
+                              style: const TextStyle(
+                                  fontSize: 22, fontWeight: FontWeight.bold),
+                            )
+                          : const SizedBox.shrink(),
+                ),
+
                 if (model.inputMode == InputMode.microphone)
                   Padding(
                     padding: const EdgeInsets.all(16),

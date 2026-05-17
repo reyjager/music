@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
-import 'package:sound_generator/sound_generator.dart';
-import 'package:sound_generator/waveTypes.dart';
 import '../../models/musical_note.dart';
 import '../../models/session_stats.dart';
 import '../../services/audio_service.dart';
+import '../../services/midi_sound_service.dart';
 import '../../services/note_generator_service.dart';
 import '../../utils/pitch_converter.dart';
 
@@ -32,6 +30,8 @@ class BassClefTrainingViewmodel extends BaseViewModel {
     required NoteGeneratorService noteGenerator,
   })  : _audioService = audioService,
         _noteGenerator = noteGenerator;
+
+  final MidiSoundService _midiSound = MidiSoundService();
 
   BassInputMode _inputMode = BassInputMode.buttons;
   BassInputMode get inputMode => _inputMode;
@@ -64,6 +64,8 @@ class BassClefTrainingViewmodel extends BaseViewModel {
   bool isCorrect = false;
   String? correctAnswer;
   String? lastPressed;
+  String? lastAnswerFeedback;
+  Timer? _feedbackTimer;
 
   bool showFeedbackEnabled = true;
   void toggleShowFeedback() {
@@ -89,14 +91,10 @@ class BassClefTrainingViewmodel extends BaseViewModel {
 
   DateTime? _noteDisplayTime;
   StreamSubscription? _pitchSubscription;
-  Timer? _soundStopTimer;
 
   bool get isListening => _audioService.isListening;
 
-  // X fraction where note becomes "active" / hit zone
   static const double hitZone = 0.2;
-  // X fraction where note is considered missed
-  static const double _missZone = 0.05;
   // Spacing between notes (fraction)
   static const double _noteSpacing = 0.25;
 
@@ -116,9 +114,8 @@ class BassClefTrainingViewmodel extends BaseViewModel {
     notifyListeners();
   }
 
-  void initialize() {
-    SoundGenerator.init(44100);
-    SoundGenerator.setWaveType(waveTypes.SINUSOIDAL);
+  void initialize() async {
+    await _midiSound.initialize();
     _spawnInitialNotes();
     _isRunning = true;
     if (_inputMode == BassInputMode.microphone) {
@@ -142,23 +139,15 @@ class BassClefTrainingViewmodel extends BaseViewModel {
   void tick() {
     if (!_isRunning) return;
 
+    // Pause scrolling if active note reached hit zone and hasn't been answered
+    final active = _activeNote;
+    if (active != null && active.xFraction <= hitZone) {
+      return;
+    }
+
     // Move all notes left
     for (final sn in scrollingNotes) {
       sn.xFraction -= _scrollSpeed;
-    }
-
-    // Check for missed notes
-    for (final sn in scrollingNotes) {
-      if (!sn.answered && sn.xFraction < _missZone) {
-        sn.answered = true;
-        sn.correct = false;
-        _statsBar.recordIncorrect(sn.note.midiNumber, 0);
-        attempts.add({
-          'pressed': '—',
-          'expected': _enharmonicLabel(sn.note.noteName),
-          'correct': false,
-        });
-      }
     }
 
     // Remove notes that scrolled off screen
@@ -227,6 +216,8 @@ class BassClefTrainingViewmodel extends BaseViewModel {
     _statsBar.recordCorrect(reactionTime);
     isCorrect = true;
     correctAnswer = _enharmonicLabel(sn.note.noteName);
+    lastAnswerFeedback = '✓ $lastPressed';
+    _clearFeedbackAfterDelay();
     attempts.add({
       'pressed': lastPressed,
       'expected': _enharmonicLabel(sn.note.noteName),
@@ -242,6 +233,8 @@ class BassClefTrainingViewmodel extends BaseViewModel {
     _statsBar.recordIncorrect(sn.note.midiNumber, reactionTime);
     isCorrect = false;
     correctAnswer = _enharmonicLabel(sn.note.noteName);
+    lastAnswerFeedback = '✗ $lastPressed → ${_enharmonicLabel(sn.note.noteName)}';
+    _clearFeedbackAfterDelay();
     attempts.add({
       'pressed': lastPressed,
       'expected': _enharmonicLabel(sn.note.noteName),
@@ -249,6 +242,14 @@ class BassClefTrainingViewmodel extends BaseViewModel {
     });
     _noteDisplayTime = DateTime.now();
     notifyListeners();
+  }
+
+  void _clearFeedbackAfterDelay() {
+    _feedbackTimer?.cancel();
+    _feedbackTimer = Timer(const Duration(milliseconds: 800), () {
+      lastAnswerFeedback = null;
+      notifyListeners();
+    });
   }
 
   bool notesMatchByName(String pressed, String expected) {
@@ -289,19 +290,9 @@ class BassClefTrainingViewmodel extends BaseViewModel {
   };
 
   void _playNoteSound(String noteLetter) {
-    _soundStopTimer?.cancel();
-    SoundGenerator.stop();
-
     final midi = _noteToMidiMap[noteLetter];
     if (midi == null) return;
-
-    final frequency = 440 * pow(2, (midi - 69) / 12).toDouble();
-    SoundGenerator.setFrequency(frequency);
-    SoundGenerator.play();
-
-    _soundStopTimer = Timer(const Duration(milliseconds: 300), () {
-      SoundGenerator.stop();
-    });
+    _midiSound.playNote(midi);
   }
 
   void resetSession() {
@@ -315,10 +306,9 @@ class BassClefTrainingViewmodel extends BaseViewModel {
   @override
   void dispose() {
     _isRunning = false;
+    _feedbackTimer?.cancel();
     _pitchSubscription?.cancel();
     _audioService.stopListening();
-    _soundStopTimer?.cancel();
-    SoundGenerator.release();
     super.dispose();
   }
 }

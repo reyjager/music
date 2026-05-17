@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
-import 'package:sound_generator/sound_generator.dart';
-import 'package:sound_generator/waveTypes.dart';
 import '../../models/musical_note.dart';
 import '../../models/session_stats.dart';
 import '../../services/audio_service.dart';
+import '../../services/midi_sound_service.dart';
 import '../../services/note_generator_service.dart';
 import '../../utils/pitch_converter.dart';
 
@@ -31,6 +29,8 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
     required this.audioService,
     required this.noteGenerator,
   });
+
+  final MidiSoundService _midiSound = MidiSoundService();
 
   InputMode _inputMode = InputMode.buttons;
   InputMode get inputMode => _inputMode;
@@ -63,6 +63,8 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
   bool isCorrect = false;
   String? correctAnswer;
   String? lastPressed;
+  String? lastAnswerFeedback;
+  Timer? _feedbackTimer;
 
   bool showFeedbackEnabled = true;
   void toggleShowFeedback() {
@@ -86,12 +88,10 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
 
   DateTime? noteDisplayTime;
   StreamSubscription? pitchSubscription;
-  Timer? soundStopTimer;
 
   bool get isListening => audioService.isListening;
 
   static const double hitZone = 0.2;
-  static const double _missZone = 0.05;
   static const double _noteSpacing = 0.25;
 
   double _scrollSpeed = 0.003;
@@ -109,9 +109,8 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
     notifyListeners();
   }
 
-  void initialize() {
-    SoundGenerator.init(44100);
-    SoundGenerator.setWaveType(waveTypes.SINUSOIDAL);
+  void initialize() async {
+    await _midiSound.initialize();
     spawnInitialNotes();
     _isRunning = true;
     if (_inputMode == InputMode.microphone) {
@@ -135,22 +134,14 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
   void tick() {
     if (!_isRunning) return;
 
-    for (final sn in scrollingNotes) {
-      sn.xFraction -= _scrollSpeed;
+    // Pause scrolling if active note reached hit zone and hasn't been answered
+    final active = _activeNote;
+    if (active != null && active.xFraction <= hitZone) {
+      return;
     }
 
-    // Check for missed notes
     for (final sn in scrollingNotes) {
-      if (!sn.answered && sn.xFraction < _missZone) {
-        sn.answered = true;
-        sn.correct = false;
-        _stats.recordIncorrect(sn.note.midiNumber, 0);
-        attempts.add({
-          'pressed': '—',
-          'expected': enharmonicLabel(sn.note.noteName),
-          'correct': false,
-        });
-      }
+      sn.xFraction -= _scrollSpeed;
     }
 
     // Remove notes that scrolled off screen
@@ -219,6 +210,8 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
     _stats.recordCorrect(reactionTime);
     isCorrect = true;
     correctAnswer = enharmonicLabel(sn.note.noteName);
+    lastAnswerFeedback = '✓ $lastPressed';
+    _clearFeedbackAfterDelay();
     attempts.add({
       'pressed': lastPressed,
       'expected': enharmonicLabel(sn.note.noteName),
@@ -234,6 +227,8 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
     _stats.recordIncorrect(sn.note.midiNumber, reactionTime);
     isCorrect = false;
     correctAnswer = enharmonicLabel(sn.note.noteName);
+    lastAnswerFeedback = '✗ $lastPressed → ${enharmonicLabel(sn.note.noteName)}';
+    _clearFeedbackAfterDelay();
     attempts.add({
       'pressed': lastPressed,
       'expected': enharmonicLabel(sn.note.noteName),
@@ -241,6 +236,14 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
     });
     noteDisplayTime = DateTime.now();
     notifyListeners();
+  }
+
+  void _clearFeedbackAfterDelay() {
+    _feedbackTimer?.cancel();
+    _feedbackTimer = Timer(const Duration(milliseconds: 800), () {
+      lastAnswerFeedback = null;
+      notifyListeners();
+    });
   }
 
   bool notesMatchByName(String pressed, String expected) {
@@ -290,34 +293,14 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
   }
 
   static const Map<String, int> _noteToMidiMap = {
-    'C': 60,
-    'C#': 61,
-    'D': 62,
-    'D#': 63,
-    'E': 64,
-    'F': 65,
-    'F#': 66,
-    'G': 67,
-    'G#': 68,
-    'A': 69,
-    'A#': 70,
-    'B': 71,
+    'C': 60, 'C#': 61, 'D': 62, 'D#': 63, 'E': 64,
+    'F': 65, 'F#': 66, 'G': 67, 'G#': 68, 'A': 69, 'A#': 70, 'B': 71,
   };
 
   void playNoteSound(String noteLetter) {
-    soundStopTimer?.cancel();
-    SoundGenerator.stop();
-
     final midi = _noteToMidiMap[noteLetter];
     if (midi == null) return;
-
-    final frequency = 440 * pow(2, (midi - 69) / 12).toDouble();
-    SoundGenerator.setFrequency(frequency);
-    SoundGenerator.play();
-
-    soundStopTimer = Timer(const Duration(milliseconds: 300), () {
-      SoundGenerator.stop();
-    });
+    _midiSound.playNote(midi);
   }
 
   void resetSession() {
@@ -331,10 +314,9 @@ class TrebleClefTrainingViewModel extends BaseViewModel {
   @override
   void dispose() {
     _isRunning = false;
+    _feedbackTimer?.cancel();
     pitchSubscription?.cancel();
     audioService.stopListening();
-    soundStopTimer?.cancel();
-    SoundGenerator.release();
     super.dispose();
   }
 }
