@@ -7,198 +7,173 @@
   <img src="assets/symbols.png" width="200">
 </p>
 
-
-Flutter mobile app for acoustic piano sight-reading training using MVVM architecture with Stacked.
+Flutter mobile app for acoustic piano sight-reading training using MVVM architecture with Stacked + GetX navigation.
 
 ## Architecture
 
-### MVVM + Stacked Pattern
+### MVVM + Stacked + GetX
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                         View                            │
-│              (StatelessWidget + Stacked)                │
-│  - Displays staff, note, feedback                       │
+│              (StatefulWidget + Stacked)                 │
+│  - Displays scrolling staff, notes, feedback            │
 │  - Observes ViewModel via ViewModelBuilder.reactive     │
+│  - Ticker-driven animation loop                         │
 └────────────────────┬────────────────────────────────────┘
                      │ notifyListeners()
                      ▼
 ┌─────────────────────────────────────────────────────────┐
 │                     ViewModel                           │
 │              (extends BaseViewModel)                    │
-│  - Current note state                                   │
+│  - Scrolling note queue management                      │
 │  - Score tracking (SessionStats)                        │
-│  - Validation logic                                     │
+│  - Input validation (buttons + microphone)              │
 │  - Reaction time tracking                               │
-└────────────┬────────────────────────┬────────────────────┘
-             │                        │
-             ▼                        ▼
-┌────────────────────────┐  ┌────────────────────────────┐
-│   NoteGeneratorService │  │      AudioService          │
-│  - Random note gen     │  │  - Microphone streaming    │
-│  - MIDI → staff pos    │  │  - Pitch detection         │
-└────────────────────────┘  │  - Frequency → MIDI        │
-                            │  - Stability filtering     │
-                            └────────────────────────────┘
-                                       │
-                                       ▼
-                            ┌────────────────────────────┐
-                            │   Platform Channels        │
-                            │  Android: TarsosDSP        │
-                            │  iOS: AudioKit             │
-                            └────────────────────────────┘
+│  - Enharmonic note matching                             │
+└────────────┬──────────────┬──────────────┬──────────────┘
+             │              │              │
+             ▼              ▼              ▼
+┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
+│ NoteGenerator    │ │ AudioService │ │ MidiSoundService │
+│ Service          │ │              │ │                  │
+│ - Random note gen│ │ - Mic stream │ │ - WAV synthesis  │
+│ - Clef-aware     │ │ - Pitch det. │ │ - Note playback  │
+└──────────────────┘ │ - MIDI conv. │ └──────────────────┘
+                     └──────────────┘
 ```
 
 ## Project Structure
 
 ```
 lib/
-├── main.dart                           # Entry point
+├── main.dart
 ├── app/
-│   └── app.dart                        # App configuration
+│   └── app.dart                              # GetMaterialApp config
 ├── models/
-│   ├── musical_note.dart               # Note data (MIDI, name, position)
-│   └── session_stats.dart              # Statistics tracking
-├── services/
-│   ├── audio_service.dart              # Pitch detection + stability
-│   └── note_generator_service.dart     # Random note generation
-├── ui/
-│   ├── views/
-│   │   └── training/
-│   │       ├── training_view.dart      # Main UI (StatelessWidget)
-│   │       └── training_viewmodel.dart # Business logic
+│   ├── clef_config.dart                      # ClefConfig (treble/bass ranges, MIDI maps)
+│   ├── musical_note.dart                     # Note data (MIDI, name, position)
+│   └── session_stats.dart                    # Statistics tracking
+├── modules/
+│   ├── home/
+│   │   ├── widget/
+│   │   │   └── home_button_widget.dart       # Menu item card
+│   │   ├── home_view.dart                    # Home screen (ListView menu)
+│   │   └── home_viewmodel.dart               # Menu items + navigation
+│   ├── symbols_reference/
+│   │   ├── music_symbols.dart                # Symbol data definitions
+│   │   └── symbols_reference_view.dart       # Symbol reference page
+│   ├── training/
+│   │   ├── clef/
+│   │   │   ├── bass_page.dart                # Bass clef entry point
+│   │   │   └── treble_page.dart              # Treble clef entry point
+│   │   ├── training_view.dart                # Shared training UI (scrolling staff)
+│   │   └── training_viewmodel.dart           # Training logic + state
 │   └── widgets/
-│       ├── staff_painter.dart          # CustomPainter for staff
-│       └── feedback_overlay.dart       # Green/red animations
+│       ├── music_symbols/
+│       │   ├── accidentals_painter.dart
+│       │   ├── articulations_painter.dart
+│       │   ├── clefs_painter_widgets.dart
+│       │   ├── dynamics_painter.dart
+│       │   ├── key_signature_painter.dart
+│       │   ├── measures_painter.dart
+│       │   ├── music_staff_painter.dart
+│       │   ├── note_values_painter.dart
+│       │   ├── other_symbols_painter.dart
+│       │   ├── rests_painter.dart
+│       │   └── time_signature_painter.dart
+│       ├── feedback_overlay.dart
+│       ├── piano_keyboard.dart               # On-screen piano input
+│       ├── staff_painter.dart                # CustomPainter for staff + notes
+│       └── stats_bar.dart                    # Session stats display
+├── services/
+│   ├── audio_service.dart                    # Microphone pitch detection
+│   ├── midi_sound_service.dart               # Synthesized piano playback
+│   └── note_generator_service.dart           # Random note generation
 └── utils/
-    └── pitch_converter.dart            # Frequency ↔ MIDI conversion
+    └── pitch_converter.dart                  # Frequency ↔ MIDI conversion
 ```
 
 ## Key Features
 
-### Pitch Detection Flow
+### Scrolling Note System
+- Notes scroll right-to-left across the staff
+- Hit zone at left side where notes must be answered
+- Configurable scroll speed via slider
+- Auto-spawns new notes as previous ones are answered
 
-1. **Microphone Input** → AudioService receives frequency + amplitude via platform channel
-2. **Filtering** → Ignore low amplitude (<0.1), collect samples in 800ms window
-3. **Stability Check** → Require same note for 200ms minimum
-4. **MIDI Conversion** → `midi = 69 + 12 * log2(frequency / 440)`
-5. **Validation** → Compare detected MIDI with expected note
-6. **Feedback** → Green (correct) or Red (incorrect) animation
-7. **Next Note** → Auto-advance after 500ms
+### Dual Input Modes
+- **Piano Buttons**: On-screen keyboard with note buttons
+- **Microphone**: Real-time pitch detection from acoustic piano
+
+### Clef Support
+- **Treble Clef**: MIDI 60–83 (C4–B5)
+- **Bass Clef**: MIDI 36–59 (C2–B3)
+
+### Enharmonic Matching
+- Accepts enharmonic equivalents (e.g., C#/Db)
+- Displays enharmonic labels in feedback
+
+### Audio Feedback
+- Synthesized piano sound on button press (WAV generation)
+- Exponential decay envelope with harmonic overtones
+
+### Music Symbols Reference
+- Comprehensive reference page for music notation symbols
+- Custom painters for clefs, dynamics, articulations, accidentals, etc.
 
 ### Statistics Tracking
+- Correct/incorrect counts
+- Accuracy percentage
+- Most missed note
+- Average reaction time (ms)
+- Per-attempt review log
 
-- **Correct/Incorrect counts**
-- **Accuracy percentage**
-- **Most missed note** (MIDI number)
-- **Average reaction time** (ms)
+## Dependencies
 
-## Setup Instructions
+| Package | Purpose |
+|---------|---------|
+| stacked | MVVM architecture |
+| get | Navigation (GetX) |
+| permission_handler | Microphone permissions |
+| pitch_detector_dart | Pitch detection |
+| record | Audio recording |
+| just_audio | Audio playback |
+| path_provider | Temp file storage |
 
-### 1. Install Dependencies
+## Setup
 
 ```bash
 flutter pub get
-```
-
-### 2. Platform-Specific Setup
-
-#### Android (TarsosDSP)
-See [ANDROID_SETUP.md](ANDROID_SETUP.md) for:
-- Adding TarsosDSP dependency
-- Microphone permissions
-- Native Kotlin integration
-
-#### iOS (AudioKit)
-See [IOS_SETUP.md](IOS_SETUP.md) for:
-- Adding AudioKit via CocoaPods
-- Microphone permissions
-- Native Swift integration
-
-### 3. Run the App
-
-```bash
 flutter run
 ```
 
-## Development Phases
+### Platform Setup
+- **Android**: See [ANDROID_SETUP.md](ANDROID_SETUP.md)
+- **iOS**: See [IOS_SETUP.md](IOS_SETUP.md) (AudioKit via CocoaPods)
 
-### ✅ Phase 1: Core Architecture
-- MVVM structure with Stacked
-- Models (MusicalNote, SessionStats)
-- Services (AudioService, NoteGeneratorService)
+## Development Status
 
-### ✅ Phase 2: UI Rendering
-- CustomPainter for staff + treble clef
-- Note rendering with ledger lines
-- Stats display
+### ✅ Completed
+- MVVM structure with Stacked + GetX navigation
+- Models (MusicalNote, SessionStats, ClefConfig)
+- Services (AudioService, NoteGeneratorService, MidiSoundService)
+- Scrolling staff with CustomPainter
+- Treble + Bass clef training modes
+- On-screen piano keyboard input
+- Microphone pitch detection input
+- Synthesized piano sound feedback
+- Session statistics + attempt review
+- Music symbols reference page
+- Pause/resume, speed control, reset
 
-### ⏳ Phase 3: Native Integration
-- Implement Android TarsosDSP integration
-- Implement iOS AudioKit integration
-- Test microphone permissions
-
-### ⏳ Phase 4: Pitch Detection
-- Verify frequency detection
-- Test MIDI conversion accuracy
-- Tune stability parameters
-
-### ⏳ Phase 5: Validation & Feedback
-- Test note matching logic
-- Refine feedback animations
-- Optimize latency
-
-### ⏳ Phase 6: Statistics & Polish
+### ⏳ Planned
+- Difficulty levels (tolerance ±1 semitone vs exact)
+- Note range customization
+- Practice modes (scales, intervals)
+- Progress tracking / daily streaks
 - End-of-session summary screen
-- Reaction time optimization
-- UI/UX improvements
-
-## Production Improvements
-
-### Audio Processing
-- **Harmonic filtering**: Detect fundamental frequency vs overtones
-- **Noise gate**: Adaptive amplitude threshold
-- **Calibration**: Allow A4 = 440Hz adjustment
-- **Sustain pedal handling**: Detect note release vs sustain
-
-### User Experience
-- **Difficulty levels**: Beginner (tolerance ±1 semitone), Advanced (exact match)
-- **Note range selection**: Customize treble clef range
-- **Practice modes**: Specific notes, scales, intervals
-- **Progress tracking**: Historical statistics, daily streaks
-
-### Performance
-- **Background processing**: Offload pitch detection to isolate
-- **Buffer optimization**: Reduce latency to <100ms
-- **Memory management**: Clear old samples efficiently
-
-### Testing
-- **Unit tests**: PitchConverter, SessionStats logic
-- **Widget tests**: Staff rendering, feedback animations
-- **Integration tests**: End-to-end note validation flow
-
-## Key Classes
-
-### AudioService
-- Manages microphone streaming via platform channels
-- Implements pitch stability filtering (800ms window, 200ms stability)
-- Streams detected MIDI notes to ViewModel
-
-### TrainingViewModel
-- Extends BaseViewModel (Stacked)
-- Manages current note, score, feedback state
-- Validates detected notes against expected
-- Calls notifyListeners() to update UI
-
-### StaffPainter
-- CustomPainter for musical staff rendering
-- Draws 5 staff lines, treble clef, note head + stem
-- Handles ledger lines for notes outside staff
-
-### PitchConverter
-- Frequency → MIDI: `69 + 12 * log2(f / 440)`
-- MIDI → Note name: "C4", "D#5", etc.
-- Note matching with optional tolerance
+- Performance optimization (isolate-based pitch detection)
 
 ## License
 
