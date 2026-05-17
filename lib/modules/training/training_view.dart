@@ -161,8 +161,17 @@ class _TrainingViewState extends State<TrainingView>
                   PianoKeyboard(onNotePressed: model.manualNotePress),
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
-                  child: model.lastAnswerFeedback != null
-                      ? Text(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "Key : ${model.keySignature.name}",
+                        style: const TextStyle(
+                            fontSize: 22, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 20),
+                      if (model.lastAnswerFeedback != null)
+                        Text(
                           model.lastAnswerFeedback!,
                           style: TextStyle(
                             fontSize: 22,
@@ -170,13 +179,31 @@ class _TrainingViewState extends State<TrainingView>
                             color: model.isCorrect ? Colors.green : Colors.red,
                           ),
                         )
-                      : model.currentNote != null
-                          ? Text(
-                              'Play: ${model.currentNote!.noteName}',
-                              style: const TextStyle(
-                                  fontSize: 22, fontWeight: FontWeight.bold),
-                            )
-                          : const SizedBox.shrink(),
+                      else if (model.currentNote != null)
+                        Text(
+                          'Play: ${model.currentNote!.noteName}',
+                          style: const TextStyle(
+                              fontSize: 22, fontWeight: FontWeight.bold),
+                        ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Wrap(
+                    spacing: 8,
+                    children: model.keySignature.scaleNotes
+                        .map((n) => Chip(
+                              label: Text(n,
+                                  style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold)),
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                            ))
+                        .toList(),
+                  ),
                 ),
                 if (model.inputMode == ClefInputMode.microphone)
                   Padding(

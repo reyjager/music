@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:music_reading_trainir/modules/piano/piano_full_view.dart';
 import 'package:music_reading_trainir/modules/symbols_reference/symbols_reference_view.dart';
 import 'package:music_reading_trainir/modules/training/clef/bass_page.dart';
 import 'package:music_reading_trainir/modules/training/clef/treble_page.dart';
@@ -38,6 +39,12 @@ class HomeViewmodel extends BaseViewModel {
       description: "Reference guide for all music symbols",
       onTap: () => Get.to(() => const SymbolsReferenceView()),
       icon: Icons.library_music,
+    ),
+    HomeMenuItem(
+      title: "Piano",
+      description: "5-octave piano keyboard",
+      onTap: () => Get.to(() => const PianoFullView()),
+      icon: Icons.piano,
     ),
   ];
 }

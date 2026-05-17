@@ -9,12 +9,14 @@ class KeySignaturePainter extends CustomPainter {
   final int flats;
   final String? clefType;
   final Color color;
+  bool drawStaffLines;
 
   KeySignaturePainter(
       {this.sharps = 0,
       this.flats = 0,
       this.clefType = 'treble',
-      this.color = Colors.black});
+      this.color = Colors.black,
+      this.drawStaffLines = true});
 
   // Staff positions for sharps: F C G D A E B
   static const _sharpPositions = [0, 3, -1, 2, 5, 1, 4];
@@ -28,22 +30,26 @@ class KeySignaturePainter extends CustomPainter {
       ..strokeWidth = 1.0;
 
     final staffTop = size.height * 0.2;
-    final staffHeight = size.height * 1;
-    final lineSpacing = staffHeight / 4;
+    final staffBottom = size.height * 0.8;
+    final lineSpacing = (staffBottom - staffTop) / 4;
 
     // Draw 5 staff lines
-    paint.style = PaintingStyle.stroke;
-    for (var i = 0; i < 5; i++) {
-      final y = staffTop + i * lineSpacing;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    if (drawStaffLines) {
+      paint.style = PaintingStyle.stroke;
+      for (var i = 0; i < 5; i++) {
+        final y = staffTop + i * lineSpacing;
+        canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+      }
     }
 
     // Draw clef or single barline on the left
     double accidentalOffset = 0;
+    final staffHeight = staffBottom - staffTop;
+    if (drawStaffLines) {
+      accidentalOffset = drawSingleBarline(canvas, staffTop, staffBottom);
+    }
     if (clefType != null) {
       accidentalOffset = drawClef(canvas, size, staffTop, staffHeight);
-    } else {
-      accidentalOffset = drawSingleBarline(canvas, staffTop, staffHeight);
     }
 
     // Draw accidentals
@@ -54,14 +60,13 @@ class KeySignaturePainter extends CustomPainter {
     }
   }
 
-  double drawSingleBarline(Canvas canvas, double staffTop, double staffHeight) {
+  double drawSingleBarline(Canvas canvas, double staffTop, double staffBottom) {
     final paint = Paint()
       ..color = color
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
-    canvas.drawLine(
-        Offset(2, staffTop), Offset(2, staffTop + staffHeight), paint);
-    return 6;
+    canvas.drawLine(Offset(0, staffTop), Offset(0, staffBottom), paint);
+    return 4;
   }
 
   double drawClef(
@@ -79,7 +84,7 @@ class KeySignaturePainter extends CustomPainter {
       text: TextSpan(
         text: clefSymbol,
         style: TextStyle(
-            fontSize: (clefType == 'treble') ? staffHeight / 2 : staffHeight,
+            fontSize: (clefType == 'treble') ? staffHeight * .85 : staffHeight,
             color: color),
       ),
       textDirection: TextDirection.ltr,
@@ -108,16 +113,16 @@ class KeySignaturePainter extends CustomPainter {
 
       final s = lineSpacing * 0.35;
       // Vertical lines
-      canvas.drawLine(Offset(x - s * 0.3, y - s * 1.2),
+      canvas.drawLine(Offset(x - s * 0.2, y - s * 1.2),
           Offset(x - s * 0.3, y + s * 1.2), paint);
-      canvas.drawLine(Offset(x + s * 0.3, y - s * 1.2),
+      canvas.drawLine(Offset(x + s * 0.2, y - s * 1.2),
           Offset(x + s * 0.3, y + s * 1.2), paint);
       // Horizontal lines
       paint.strokeWidth = 2.0;
       canvas.drawLine(
-          Offset(x - s, y - s * 0.4), Offset(x + s, y - s * 0.5), paint);
+          Offset(x - s, y - s * 0.3), Offset(x + s, y - s * 0.4), paint);
       canvas.drawLine(
-          Offset(x - s, y + s * 0.5), Offset(x + s, y + s * 0.4), paint);
+          Offset(x - s, y + s * 0.4), Offset(x + s, y + s * 0.4), paint);
     }
   }
 
@@ -153,7 +158,8 @@ class KeySignaturePainter extends CustomPainter {
       sharps != oldDelegate.sharps ||
       flats != oldDelegate.flats ||
       clefType != oldDelegate.clefType ||
-      color != oldDelegate.color;
+      color != oldDelegate.color ||
+      drawStaffLines != oldDelegate.drawStaffLines;
 }
 
 /// Widget wrapper for KeySignaturePainter

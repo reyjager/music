@@ -15,6 +15,16 @@ class KeySignature {
   bool hasSharp(String letter) => sharps.contains(letter);
   bool hasFlat(String letter) => flats.contains(letter);
 
+  /// Returns the 7 scale note names for this key (e.g. A Major: A B C# D E F# G#)
+  List<String> get scaleNotes {
+    const letters = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+    return letters.map((l) {
+      if (sharps.contains(l)) return '$l#';
+      if (flats.contains(l)) return '${l}b';
+      return l;
+    }).toList();
+  }
+
   /// Treble clef staff positions for sharps (F C G D A E B)
   static const List<int> trebleSharpPositions = [4, 1, 5, 2, -1, 3, 0];
 
