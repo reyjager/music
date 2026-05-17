@@ -1,4 +1,5 @@
 import 'dart:math';
+import '../models/key_signature.dart';
 import '../models/musical_note.dart';
 
 class NoteGeneratorService {
@@ -10,13 +11,15 @@ class NoteGeneratorService {
     72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, // C5-B5
   ];
 
-  MusicalNote generateRandomNote() {
+  MusicalNote generateRandomNote({KeySignature? keySignature}) {
     final midi = chromaticNotes[_random.nextInt(chromaticNotes.length)];
-    return createNote(midi);
+    return createNote(midi, keySignature: keySignature);
   }
 
-  MusicalNote createNote(int midi) {
-    final noteName = noteNameWithRandomSpelling(midi);
+  MusicalNote createNote(int midi, {KeySignature? keySignature}) {
+    final noteName = keySignature != null
+        ? _spellNoteInKey(midi, keySignature)
+        : noteNameWithRandomSpelling(midi);
     final linePosition = calculateLinePosition(midi, noteName);
 
     return MusicalNote(
@@ -24,6 +27,74 @@ class NoteGeneratorService {
       noteName: noteName,
       linePosition: linePosition,
     );
+  }
+
+  /// Generates only notes that belong to the key's diatonic scale.
+  /// In A Major: A B C# D E F# G# (no G natural, no C natural, no F natural).
+  MusicalNote generateNoteInKey(KeySignature keySignature) {
+    final scaleNotes = _buildScaleMidiNotes(keySignature);
+    final midi = scaleNotes[_random.nextInt(scaleNotes.length)];
+    final noteName = _spellNoteInKey(midi, keySignature);
+    final linePosition = calculateLinePosition(midi, noteName);
+    return MusicalNote(midiNumber: midi, noteName: noteName, linePosition: linePosition);
+  }
+
+  /// Builds all MIDI notes in range that belong to the key's diatonic scale.
+  List<int> _buildScaleMidiNotes(KeySignature keySignature) {
+    // Diatonic semitone offsets from root for major scale: W W H W W W H
+    const majorIntervals = [0, 2, 4, 5, 7, 9, 11];
+    final root = _keyRoot(keySignature);
+    final result = <int>[];
+    for (final midi in chromaticNotes) {
+      if (majorIntervals.contains((midi - root) % 12)) {
+        result.add(midi);
+      }
+    }
+    return result;
+  }
+
+  int _keyRoot(KeySignature keySignature) {
+    const roots = {
+      'C Major': 0, 'G Major': 7, 'D Major': 2, 'A Major': 9,
+      'E Major': 4, 'B Major': 11, 'F# Major': 6, 'C# Major': 1,
+      'F Major': 5, 'Bb Major': 10, 'Eb Major': 3, 'Ab Major': 8,
+      'Db Major': 1, 'Gb Major': 6, 'Cb Major': 11,
+    };
+    return roots[keySignature.name] ?? 0;
+  }
+
+  /// Spells a MIDI note according to the key signature.
+  String _spellNoteInKey(int midi, KeySignature keySignature) {
+    final octave = (midi ~/ 12) - 1;
+    final noteIndex = midi % 12;
+
+    // Map semitone to letter + accidental based on key
+    // Natural letters: C=0, D=2, E=4, F=5, G=7, A=9, B=11
+    const naturalMap = {0: 'C', 2: 'D', 4: 'E', 5: 'F', 7: 'G', 9: 'A', 11: 'B'};
+
+    if (naturalMap.containsKey(noteIndex)) {
+      final letter = naturalMap[noteIndex]!;
+      // If this letter is sharped in the key, this natural shouldn't appear
+      // (handled by scale filtering), but just in case:
+      if (keySignature.hasSharp(letter)) {
+        // This is actually the flatted version of the sharp note
+        // e.g., in A Major, natural G shouldn't be in scale
+        return '$letter$octave';
+      }
+      if (keySignature.hasFlat(letter)) {
+        return '$letter$octave';
+      }
+      return '$letter$octave';
+    }
+
+    // Accidental note - spell according to key
+    if (keySignature.flats.isNotEmpty) {
+      const flatSpelling = {1: 'Db', 3: 'Eb', 6: 'Gb', 8: 'Ab', 10: 'Bb'};
+      return '${flatSpelling[noteIndex]}$octave';
+    } else {
+      const sharpSpelling = {1: 'C#', 3: 'D#', 6: 'F#', 8: 'G#', 10: 'A#'};
+      return '${sharpSpelling[noteIndex]}$octave';
+    }
   }
 
   /// Randomly spells sharps as flats (e.g. C# or Db)

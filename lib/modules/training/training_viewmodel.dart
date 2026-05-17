@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
 import '../../models/clef_config.dart';
+import '../../models/key_signature.dart';
 import '../../models/musical_note.dart';
 import '../../models/session_stats.dart';
 import '../../services/audio_service.dart';
@@ -30,10 +31,15 @@ class TrainingViewModel extends BaseViewModel {
 
   TrainingViewModel({
     required this.config,
+    required KeySignature keySignature,
     required AudioService audioService,
     required NoteGeneratorService noteGenerator,
-  })  : _audioService = audioService,
+  })  : _keySignature = keySignature,
+        _audioService = audioService,
         _noteGenerator = noteGenerator;
+
+  final KeySignature _keySignature;
+  KeySignature get keySignature => _keySignature;
 
   ClefInputMode _inputMode = ClefInputMode.buttons;
   ClefInputMode get inputMode => _inputMode;
@@ -128,7 +134,7 @@ class TrainingViewModel extends BaseViewModel {
     scrollingNotes.clear();
     for (int i = 0; i < 5; i++) {
       scrollingNotes.add(ScrollingNote(
-        note: _noteGenerator.generateRandomNote(),
+        note: _noteGenerator.generateNoteInKey(_keySignature),
         xFraction: 0.8 + (i * _noteSpacing),
       ));
     }
@@ -150,7 +156,7 @@ class TrainingViewModel extends BaseViewModel {
     if (scrollingNotes.isEmpty ||
         scrollingNotes.last.xFraction < 1.0 - _noteSpacing) {
       scrollingNotes.add(ScrollingNote(
-        note: _noteGenerator.generateRandomNote(),
+        note: _noteGenerator.generateNoteInKey(_keySignature),
         xFraction: 1.0,
       ));
     }

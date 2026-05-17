@@ -78,7 +78,9 @@ class KeySignaturePainter extends CustomPainter {
     final textPainter = TextPainter(
       text: TextSpan(
         text: clefSymbol,
-        style: TextStyle(fontSize: staffHeight * 1.2, color: color),
+        style: TextStyle(
+            fontSize: (clefType == 'treble') ? staffHeight / 2 : staffHeight,
+            color: color),
       ),
       textDirection: TextDirection.ltr,
     );

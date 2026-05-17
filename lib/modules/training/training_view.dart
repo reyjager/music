@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:stacked/stacked.dart';
 import '../../models/clef_config.dart';
+import '../../models/key_signature.dart';
 import '../../services/audio_service.dart';
 import '../../services/note_generator_service.dart';
 import '../widgets/staff_painter.dart';
@@ -11,8 +12,13 @@ import 'training_viewmodel.dart';
 
 class TrainingView extends StatefulWidget {
   final ClefConfig config;
+  final KeySignature keySignature;
 
-  const TrainingView({Key? key, required this.config}) : super(key: key);
+  const TrainingView({
+    Key? key,
+    required this.config,
+    required this.keySignature,
+  }) : super(key: key);
 
   @override
   State<TrainingView> createState() => _TrainingViewState();
@@ -51,6 +57,7 @@ class _TrainingViewState extends State<TrainingView>
     return ViewModelBuilder<TrainingViewModel>.reactive(
       viewModelBuilder: () => TrainingViewModel(
         config: widget.config,
+        keySignature: widget.keySignature,
         audioService: AudioService(),
         noteGenerator: NoteGeneratorService(),
       ),
@@ -133,6 +140,7 @@ class _TrainingViewState extends State<TrainingView>
                         painter: StaffPainter(
                           isBassClef: widget.config.isBassClef,
                           noteQueue: buildNotePositions(model),
+                          keySignature: model.keySignature,
                         ),
                         size: Size.infinite,
                       ),
